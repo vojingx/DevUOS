@@ -1,0 +1,14 @@
+# DDE 图形桌面环境 + 显示管理器 + 终端
+dde
+deepin-terminal
+lightdm
+lightdm-gtk-greeter
+xorg
+xserver-xorg
+xinit
+x11-xserver-utils
+network-manager
+network-manager-gnome
+gtk2-engines
+gtk2-engines-pixbuf
+gtk3-engines-breeze
