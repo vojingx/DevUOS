@@ -9,9 +9,6 @@ on:
   workflow_dispatch:
   push:
     branches: [ main, master ]
-    paths-ignore:
-      - '**/*.md'
-      - '.github/**'
 
 permissions:
   contents: write   # 用于把构建好的 ISO 发布到 Release
@@ -29,29 +26,112 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/hostedtoolcache \
                      /usr/local/share/powershell /usr/local/lib/android \
-                     /usr/local/.ghcup /opt/ghc /usr/lib/jvm
+                     /usr/local/.ghcup /opt/ghc /usr/lib/jvm \
+                     /opt/az.com /usr/share/swift
+          sudo apt-get clean
           df -h /
 
-      - name: Install build tools
+      # 用 Debian bookworm 容器运行构建（Deepin 20.9 基于 Debian 10，
+      # 但 bookworm 的 live-build/debootstrap 更新更稳，且 debootstrap 脚本齐全）
+      - name: Build ISO (in Debian container)
         run: |
+          set -xeo pipefail
+
+          echo "=== 安装 Docker 构建依赖 ==="
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            live-build debootstrap xorriso squashfs-tools mtools \
-            grub-common git curl python3
+            docker.io debootstrap xorriso squashfs-tools mtools grub-common
 
-      - name: Build ISO
-        run: |
-          chmod +x build.sh
-          sudo ./build.sh
+          sudo systemctl start docker || true
+
+          echo "=== 准备构建目录 ==="
+          BUILDDIR="$(pwd)"
+          WORKSPACE="/devuos-work"
+
+          # 创建容器内的工作目录映射
+          sudo docker pull debian:bookworm-slim
+
+          echo "=== 在容器内执行完整构建 ==="
+          sudo docker run --rm \
+            -v "${BUILDDIR}:${WORKSPACE}:rw" \
+            -w "${WORKSPACE}" \
+            --privileged \
+            debian:bookworm-slim bash -c '
+              set -xeo pipefail
+
+              echo "=== 容器环境信息 ==="
+              cat /etc/os-release | head -5
+              uname -a
+
+              echo "=== 安装构建工具 ==="
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y --no-install-recommends \
+                live-build debootstrap xorriso squashfs-tools mtools \
+                grub-common git curl python3 ca-certificates \
+                > /dev/null 2>&1
+
+              echo "=== 注册 apricot 发行代号 (Deepin 20.9 基于 Debian buster) ==="
+              SCRIPT_DIR=/usr/share/debootstrap/scripts
+              if [ ! -e "$SCRIPT_DIR/apricot" ]; then
+                if [ -e "$SCRIPT_DIR/buster" ]; then
+                  ln -sf "$SCRIPT_DIR/buster" "$SCRIPT_DIR/apricot"
+                  echo "已创建 apricot -> buster 符号链接"
+                elif [ -e "$SCRIPT_DIR/bookworm" ]; then
+                  ln -sf "$SCRIPT_DIR/bookworm" "$SCRIPT_DIR/apricot"
+                  echo "已创建 apricot -> bookworm 符号链接"
+                else
+                  echo "ERROR: debootstrap 缺少基础脚本" >&2
+                  ls "$SCRIPT_DIR/" >&2
+                  exit 1
+                fi
+              fi
+              ls -la "$SCRIPT_DIR/apricot"
+
+              echo "=== 设置权限并开始构建 ==="
+              chmod +x build.sh config/auto/* config/hooks/live/* 2>/dev/null || true
+
+              echo "=== 运行 lb config ==="
+              lb config 2>&1 | tail -50
+
+              echo "=== 运行 lb build ==="
+              lb build 2>&1 | tee /tmp/build_output.txt
+              EXIT_CODE=${PIPESTATUS[0]}
+
+              echo "=== 构建退出码: $EXIT_CODE ==="
+              ls -lh ./*.iso 2>/dev/null || echo "未生成 ISO 文件"
+
+              # 保存完整日志
+              cp /tmp/build_output.txt ./build-output.log 2>/dev/null || true
+
+              exit $EXIT_CODE
+          '
+
+          echo "=== 主机构建结果 ==="
+          ls -lh ./*.iso 2>/dev/null || echo "未找到 ISO"
+          ls -lh ./build-output.log 2>/dev/null || echo "未找到构建日志"
+
+      # 即使失败也上传日志和产物（方便排查）
+      - name: Upload build log (always)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-log
+          path: |
+            build-output.log
+            *.iso
+          retention-days: 7
 
       - name: Publish ISO to Release
+        if: success()
         uses: ncipollo/release-action@v1
         with:
           tag: devuos-${{ github.run_number }}
           name: "DevUOS Build #${{ github.run_number }}"
           body: |
             Automated cloud build of **DevUOS** — a Deepin/UOS-based developer ISO.
-            Built via live-build on Ubuntu runner. Uses the `apricot` (Deepin 20.9) archive.
+            Built via live-build in Debian container on GitHub Actions.
+            Uses the `apricot` (Deepin 20.9) archive.
           artifacts: "devuos-amd64.hybrid.iso"
           token: ${{ secrets.GITHUB_TOKEN }}
           makeLatest: true
