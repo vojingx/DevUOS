@@ -1,0 +1,21 @@
+#!/bin/bash
+# chroot 阶段：本地化、主机名、密钥、显示管理器
+set -e
+
+# 生成中英文 locale
+echo "zh_CN.UTF-8 UTF-8" > /etc/locale.gen
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:en
+
+# 主机名
+echo "DevUOS" > /etc/hostname
+echo "127.0.0.1 DevUOS localhost" > /etc/hosts
+
+# 尝试安装 deepin-keyring，使最终系统 apt 能校验 Deepin 源（失败不影响构建）
+apt-get install -y deepin-keyring >/dev/null 2>&1 || true
+
+# 启用 lightdm 显示管理器
+systemctl enable lightdm >/dev/null 2>&1 || true
+
+exit 0
