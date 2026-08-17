@@ -1,0 +1,57 @@
+name: Build DevUOS ISO (cloud)
+
+# 让 Windows / macOS 用户也能产出 Linux ISO：
+# 你只需把代码 push 到 GitHub，GitHub 的 Linux 服务器自动拉包、构建、发布 ISO。
+# 触发方式：
+#   1) 推送到 main/master 分支自动触发
+#   2) 在仓库 Actions 页手动点 "Run workflow" 触发
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths-ignore:
+      - '**/*.md'
+      - '.github/**'
+
+permissions:
+  contents: write   # 用于把构建好的 ISO 发布到 Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # GitHub 自带 runner 磁盘较小，先清掉不相关的预装软件腾空间
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/hostedtoolcache \
+                     /usr/local/share/powershell /usr/local/lib/android \
+                     /usr/local/.ghcup /opt/ghc /usr/lib/jvm
+          df -h /
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            live-build debootstrap xorriso squashfs-tools mtools \
+            grub-common git curl python3
+
+      - name: Build ISO
+        run: |
+          chmod +x build.sh
+          sudo ./build.sh
+
+      - name: Publish ISO to Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: devuos-${{ github.run_number }}
+          name: "DevUOS Build #${{ github.run_number }}"
+          body: |
+            Automated cloud build of **DevUOS** — a Deepin/UOS-based developer ISO.
+            Built via live-build on Ubuntu runner. Uses the `apricot` (Deepin 20.9) archive.
+          artifacts: "devuos-amd64.hybrid.iso"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          makeLatest: true
