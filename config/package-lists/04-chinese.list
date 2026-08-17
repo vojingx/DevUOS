@@ -1,0 +1,20 @@
+# 中文本地化 + 常用应用 + 输入法
+fcitx
+fcitx-sunpinyin
+fcitx-config-gtk
+fcitx-frontend-gtk3
+fcitx-module-cloudpinyin
+fonts-wqy-zenhei
+fonts-wqy-microhei
+fonts-noto-cjk
+chromium
+firefox-esr
+deepin-editor
+deepin-system-monitor
+deepin-screenshot
+htop
+neofetch
+tree
+unzip
+zip
+gparted
