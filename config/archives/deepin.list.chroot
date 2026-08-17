@@ -1,0 +1,2 @@
+deb https://community-packages.deepin.com/deepin apricot main
+# 最终系统如需更新/装包，apt 将使用上述 Deepin 源
