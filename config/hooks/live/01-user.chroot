@@ -1,0 +1,16 @@
+#!/bin/bash
+# chroot 阶段：创建预置开发用户 developer，并配置免密 sudo
+set -e
+
+id developer >/dev/null 2>&1 || useradd -m -s /bin/bash -G sudo,adm,cdrom,plugdev,lpadmin,network,lp developer
+echo "developer:developer" | chpasswd
+
+mkdir -p /etc/sudoers.d
+echo "developer ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/developer
+chmod 440 /etc/sudoers.d/developer
+
+# lightdm 自动登录所需的 autologin 组
+groupadd -f autologin
+gpasswd -a developer autologin
+
+exit 0
