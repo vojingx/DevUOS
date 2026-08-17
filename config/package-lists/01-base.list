@@ -1,0 +1,21 @@
+# 基础系统 + Live 运行必需
+linux-image-amd64
+linux-headers-amd64
+live-boot
+live-config
+live-tools
+systemd
+systemd-sysv
+sudo
+locales
+ca-certificates
+curl
+wget
+gnupg
+apt-transport-https
+bash-completion
+netbase
+ifupdown
+isc-dhcp-client
+fdisk
+dosfstools
