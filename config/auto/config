@@ -1,0 +1,33 @@
+#!/bin/bash
+# DevUOS live-build 配置
+# 基于 UOS 的开源上游 Deepin 20.9 (apricot)，定制 DDE 图形桌面 + 终端 + 开发工具链
+set -e
+
+lb config noauto \
+    --architecture amd64 \
+    --linux-flavours amd64 \
+    --distribution apricot \
+    --mode debian \
+    --bootstrap debootstrap \
+    --bootstrap-config apricot \
+    --debootstrap-options "--no-check-gpg" \
+    --mirror-bootstrap "https://community-packages.deepin.com/deepin" \
+    --mirror-chroot "https://community-packages.deepin.com/deepin" \
+    --mirror-binary "https://community-packages.deepin.com/deepin" \
+    --mirror-binary-security "https://community-packages.deepin.com/deepin" \
+    --archive-areas main \
+    --apt-secure false \
+    --apt-recommends true \
+    --apt-indices true \
+    --debian-installer none \
+    --linux-packages "linux-image linux-headers" \
+    --binary-images iso-hybrid \
+    --bootappend-live "boot=live components quiet splash locales=zh_CN.UTF-8 keyboard-layouts=us" \
+    --bootappend-live-failsafe "boot=live components noapic noapm nomceshow nolapic noacpi nosmp acpi=off noprobe" \
+    --iso-application "DevUOS" \
+    --iso-preparer "DevUOS Build" \
+    --iso-publisher "DevUOS" \
+    --iso-volume "DevUOS" \
+    --image-name "devuos" \
+    --checksums sha256 \
+    "$@"
